@@ -511,6 +511,7 @@ public final class AnisetteDataManager: @unchecked Sendable {
         identifier: UUID,
         existingAdiBlob: Data? = nil,
         headers: AnisetteRequestHeaders? = nil,
+        headersForServer: (@Sendable (URL) async throws -> AnisetteRequestHeaders?)? = nil,
         onError: (@Sendable (Error) async throws -> Bool)? = nil,
         onSuccess: (@Sendable (URL) -> Void)? = nil
     ) async throws -> (data: AnisetteData, newAdiBlob: Data?) {
@@ -529,11 +530,17 @@ public final class AnisetteDataManager: @unchecked Sendable {
             let serverURL = servers[currentIndex]
             debugLog("[Anisette Failover] Attempting server [\(triedCount + 1)/\(servers.count)]: \(serverURL.absoluteString)...")
             do {
+                let attemptHeaders: AnisetteRequestHeaders?
+                if let headersForServer {
+                    attemptHeaders = try await headersForServer(serverURL)
+                } else {
+                    attemptHeaders = headers
+                }
                 let result = try await fetchAnisetteData(
                     mode: .remote(server: serverURL),
                     identifier: identifier,
                     existingAdiBlob: existingAdiBlob,
-                    headers: headers,
+                    headers: attemptHeaders,
                     onError: onError
                 )
                 debugLog("[Anisette Failover] Successfully acquired Anisette data from \(serverURL.absoluteString)")
